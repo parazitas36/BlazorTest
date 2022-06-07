@@ -1,0 +1,32 @@
+﻿@page "/seeddata"
+
+<PageTitle>Seed Data</PageTitle>
+
+@using BlazorTest.Data
+@inject IUniversityDatabase databaseSeeder
+
+<h1>Database Seeder</h1>
+
+<p>Database is @(isSeeded ? "" : "not") seeded.</p>
+
+
+@code {
+    [Parameter]
+    public bool isSeeded { get; set; } = false;
+
+    protected override void OnInitialized()
+    {
+    }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!isSeeded)
+        {
+            databaseSeeder.SeedDb();
+            isSeeded = true;
+            StateHasChanged();
+        }
+
+        return base.OnAfterRenderAsync(true);
+    }
+}

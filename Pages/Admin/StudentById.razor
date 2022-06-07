@@ -1,0 +1,145 @@
+﻿@page "/students/{id:int}"
+
+<PageTitle>Student Grades</PageTitle>
+
+@using BlazorTest.Data
+@using DataAccessLibrary.Models;
+@using DataAccessLibrary.DataAccess;
+@using Microsoft.EntityFrameworkCore
+@using System.Text
+@inject IUniversityDatabase universityDb;
+
+<h1>Student Grades</h1>
+
+@if (!studentLoaded)
+{
+    <h3>Loading...</h3>
+}
+else
+{
+    if (grades.Count > 0)
+    {
+        if (!String.IsNullOrEmpty(chosenEditModule))
+        {
+            <EditForm EditContext="@editContext" OnInvalidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <h4>Edit @chosenEditModule module grades</h4>
+                @foreach (var gradesInfo in grades)
+                {
+                    if(gradesInfo.Module.Module.Name == chosenEditModule)
+                    {
+                        <InputSelect class="form form-select" style="max-width: 80px;" @bind-Value="@gradesInfo.GradeValue">
+                            @foreach (var grade in selectGrades)
+                            {
+                                <option value="@grade">@grade</option>
+                            }
+                        </InputSelect>
+                    }
+                }
+                <br />
+                <button type="submit" style="margin-top: 10px; margin-bottom: 10px;" class="btn btn-primary">Save</button>
+            </EditForm>
+        }
+
+
+        <h3>@($"{student.FirstName} {student.LastName} grades")</h3>
+        <table class="table table-responsive">
+            <thead>
+                <tr>
+                    <td>Module Name</td>
+                    <td>Coordinator</td>
+                    <td>Lecturer</td>
+                    <td>Grades</td>
+                    <td>Finished</td>
+                    <td>Edit Grades</td>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in grades.DistinctBy(x => x.Module.Id))
+                {
+                    // ^ Loop goes through each unique module and finds every grade student got in that module
+
+                    var moduleName = item.Module.Module.Name;
+                    var coordinator = item.Module.Module.Coordinator;
+                    var lecturer = item.Module.Lecturer;
+
+                    // StringBuilder is more efficient in concatenating strings than value += otherString
+                    StringBuilder sb = new StringBuilder();
+                    @foreach (var grade in grades)
+                    {
+                        if (grade.Module.Module.Name == moduleName)
+                        {
+                            sb.Append(grade.GradeValue);
+                            sb.Append(" ");
+                        }
+                    }
+
+                    // Removes empty space after last grade append
+                    sb.Remove(sb.Length - 1, 1);
+
+                    <tr>
+                        <td>@moduleName</td>
+                        <td>@($"{ coordinator.FirstName } { coordinator.LastName }")</td>
+                        <td>@($"{ lecturer.FirstName } { lecturer.LastName }")</td>
+                        <td>
+                            @sb.ToString()
+                        </td>
+                        <td>@(item.Module.IsFinished ? "Yes" : "No")</td>
+                        <td><span @onclick="() => OnClickEdit(moduleName)" class="oi oi-pencil iconHover"></span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <h3>Student: @($"{student.FirstName} {student.LastName}") has no grades.</h3>
+    }
+}
+
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private bool studentLoaded = false;
+    private Student student;
+    private List<Grade> grades;
+    private EditContext? editContext = new(new Grade());
+    private List<int> selectGrades = new List<int>() { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+    private string? chosenEditModule = null;
+
+    protected override void OnInitialized() { }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Load student data after first render
+        if (!studentLoaded && firstRender)
+        {
+            student = universityDb.GetStudent(Id);
+            grades = universityDb.GetStudentGrades(Id, student);
+
+            // Change state that student data loaded
+            studentLoaded = true;
+
+            // Inform that state has changed
+            StateHasChanged();
+        }
+        return base.OnAfterRenderAsync(firstRender);
+    }
+
+    protected void OnClickEdit(string moduleName)
+    {
+        chosenEditModule = moduleName;
+    }
+
+    protected async Task HandleSubmit()
+    {
+        // Filter grades of the module whose grades have been updated
+        var onlyUpdatedGrades = grades.Where(x => x.Module.Module.Name == chosenEditModule).ToList();
+        await universityDb.UpdateGrades(onlyUpdatedGrades);
+        chosenEditModule = null;
+    }
+}

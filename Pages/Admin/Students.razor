@@ -1,0 +1,71 @@
+﻿@page "/students"
+
+<PageTitle>Students List</PageTitle>
+
+@using BlazorTest.Data
+@using DataAccessLibrary.Models;
+@using DataAccessLibrary.DataAccess;
+@inject IUniversityDatabase universityDb;
+@inject NavigationManager NavigationManager;
+
+<h1>Students List</h1>
+
+@if (!studentsLoaded)
+{
+    <h3>Loading...</h3>
+}
+else
+{
+    @if (students.Count > 0)
+    {
+        <table class="table table-responsive">
+            <thead>
+                <tr>
+                    <td>First Name</td>
+                    <td>Last Name</td>
+                    <td>Inspect</td>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var student in students)
+                {
+                    <tr>
+                        <td>@student.FirstName</td>
+                        <td>@student.LastName</td>
+                        <td><span class="oi oi-person iconHover" @onclick="() => RedirectToStudentView(student.Id)"></span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <h3>No students have been found.</h3>
+    }
+}
+
+@code {
+    private List<Student> students;
+    private bool studentsLoaded = false;
+
+    protected override async Task OnInitializedAsync() { }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!studentsLoaded && firstRender)
+        {
+            students = universityDb.GetStudents();
+            studentsLoaded = true;
+            StateHasChanged();
+        }
+        return base.OnAfterRenderAsync(false);
+    }
+
+    protected void RedirectToStudentView(int id)
+    {
+        Console.WriteLine($"Clicked on student: {id}");
+        string uri = NavigationManager.ToAbsoluteUri($"students/{id}").ToString();
+        NavigationManager.NavigateTo(uri);
+    }
+
+}
