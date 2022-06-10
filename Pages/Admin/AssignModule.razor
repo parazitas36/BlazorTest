@@ -1,0 +1,135 @@
+﻿@page "/assignment"
+@using BlazorTest.Data
+@using DataAccessLibrary.Models
+@inject IUniversityDatabase universityDb
+
+<h3>Module assignment window</h3>
+
+@if (!isDataFetched)
+{
+    <h3>Loading...</h3>
+}
+else
+{
+    <div class="container">
+        @if (!String.IsNullOrEmpty(error))
+        {
+            <h5 class="text-danger">@error</h5>
+        }
+        <EditForm Model="model" OnSubmit="HandleSubmit">
+            <div class="row my-3">
+                <div class="col-2">
+                    <label class="form-label">Module</label>
+                    <select class="form-select" @bind="@selectedModuleId" required>
+                        @foreach(var module in modules)
+                        {
+                            <option value="@module.Id">@module.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-2">
+                    <label class="form-label">Student</label>
+                    <select class="form-select" @bind="@selectedStudentId" required>
+                        @foreach(var student in students)
+                        {
+                            <option value="@student.Id">@($"{student.FirstName} {student.LastName}")</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-2">
+                    <label class="form-label">Lecturer</label>
+                    <select class="form-select" @bind="@selectedLecturerId" required>
+                        @foreach(var lecturer in lecturers)
+                        {
+                            <option value="@lecturer.Id">@($"{lecturer.FirstName} {lecturer.LastName}")</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <button class="btn btn-primary" type="submit">Assign</button>
+        </EditForm>
+    </div>
+}
+
+@code {
+    private bool isDataFetched = false;
+    private string? error;
+
+    private int selectedStudentId = -1;
+    private int selectedLecturerId = -1;
+    private int selectedModuleId = -1;
+
+    private ModuleReport model = new ModuleReport();
+
+    private List<Module> modules;
+    private List<Lecturer> lecturers;
+    private List<Student> students;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!isDataFetched)
+        {
+            modules = universityDb.GetModules();
+            lecturers = universityDb.GetLecturers();
+            students = universityDb.GetStudents();
+
+            isDataFetched = true;
+            StateHasChanged();
+        }
+    }
+
+    protected async Task HandleSubmit()
+    {
+        error = null; // resets just in case
+
+        if (selectedModuleId == -1)
+        {
+            error = "You must select the module!";
+            return;
+        }
+        if (selectedStudentId == -1)
+        {
+            error = "You must select the student!";
+            return;
+        }
+        if (selectedLecturerId == -1)
+        {
+            error = "You must select the lecturer!";
+            return;
+        }
+
+        var module = modules.Where(x => x.Id == selectedModuleId).FirstOrDefault();
+        var student = students.Where(x => x.Id == selectedStudentId).FirstOrDefault();
+        var lecturer = lecturers.Where(x => x.Id == selectedLecturerId).FirstOrDefault();
+
+        if (module == null)
+        {
+            error = "The module you have selected does not exist!";
+            return;
+        }
+        if (student == null)
+        {
+            error = "The student you have selected does not exist!";
+            return;
+        }if (lecturer == null)
+        {
+            error = "The lecturer you have selected does not exist!";
+            return;
+        }
+
+        model.Module = module;
+        model.Student = student;
+        model.Lecturer = lecturer;
+
+        await universityDb.AssignLecturerAndStudentToModule(model);
+
+        // Reset the data
+        model = new ModuleReport();
+        selectedModuleId = -1;
+        selectedStudentId = -1;
+        selectedLecturerId = -1;
+        isDataFetched = false;
+
+        StateHasChanged();
+    }
+}

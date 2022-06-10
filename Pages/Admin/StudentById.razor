@@ -8,6 +8,7 @@
 @using Microsoft.EntityFrameworkCore
 @using System.Text
 @inject IUniversityDatabase universityDb;
+@attribute [Authorize(Roles = "Administrator")]
 
 <h1>Student Grades</h1>
 
@@ -21,11 +22,9 @@ else
     {
         if (!String.IsNullOrEmpty(chosenEditModule))
         {
-            <EditForm EditContext="@editContext" OnInvalidSubmit="HandleSubmit">
-                <DataAnnotationsValidator />
-                <ValidationSummary />
-
+            <EditForm EditContext="@editContext" OnValidSubmit="HandleSubmit">
                 <h4>Edit @chosenEditModule module grades</h4>
+                <h5 class="text-danger">@error</h5>
                 @foreach (var gradesInfo in grades)
                 {
                     if(gradesInfo.Module.Module.Name == chosenEditModule)
@@ -53,10 +52,14 @@ else
                     <td>Lecturer</td>
                     <td>Grades</td>
                     <td>Finished</td>
+                    <td>Change finish status</td>
                     <td>Edit Grades</td>
                 </tr>
             </thead>
             <tbody>
+                @{
+                    uniqueModules = grades.DistinctBy(x => x.Module.Id).Select(x => x.Module).ToList();
+                }
                 @foreach (var item in grades.DistinctBy(x => x.Module.Id))
                 {
                     // ^ Loop goes through each unique module and finds every grade student got in that module
@@ -87,11 +90,13 @@ else
                             @sb.ToString()
                         </td>
                         <td>@(item.Module.IsFinished ? "Yes" : "No")</td>
+                        <td><button class="btn btn-dark" @onclick="() => item.Module.IsFinished = !item.Module.IsFinished">Change</button></td>
                         <td><span @onclick="() => OnClickEdit(moduleName)" class="oi oi-pencil iconHover"></span></td>
                     </tr>
                 }
             </tbody>
         </table>
+        <button @onclick="SaveFinishedStatus" class="btn btn-primary">Save</button>
     }
     else
     {
@@ -107,16 +112,18 @@ else
     private bool studentLoaded = false;
     private Student student;
     private List<Grade> grades;
+    private List<ModuleReport> uniqueModules;
     private EditContext? editContext = new(new Grade());
     private List<int> selectGrades = new List<int>() { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
     private string? chosenEditModule = null;
+    private string? error = null;
 
     protected override void OnInitialized() { }
 
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
         // Load student data after first render
-        if (!studentLoaded && firstRender)
+        if (!studentLoaded)
         {
             student = universityDb.GetStudent(Id);
             grades = universityDb.GetStudentGrades(Id, student);
@@ -137,9 +144,21 @@ else
 
     protected async Task HandleSubmit()
     {
+        error = null;
+        if(grades.Where(x => x.GradeValue == null || x.GradeValue < 0 || x.GradeValue > 10).FirstOrDefault() != null)
+        {
+            error = "You have selected invalid value!";
+            return;
+        }
         // Filter grades of the module whose grades have been updated
         var onlyUpdatedGrades = grades.Where(x => x.Module.Module.Name == chosenEditModule).ToList();
         await universityDb.UpdateGrades(onlyUpdatedGrades);
         chosenEditModule = null;
+    }
+
+    protected async Task SaveFinishedStatus()
+    {
+        await universityDb.UpdateModuleReports(uniqueModules);
+        studentLoaded = false;
     }
 }

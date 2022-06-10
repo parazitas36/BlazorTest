@@ -1,0 +1,99 @@
+﻿@page "/student"
+@using BlazorTest.Authentication
+@using BlazorTest.Data
+@using DataAccessLibrary.Models
+@using System.Text
+@inject IUniversityDatabase universityDb
+@attribute [Authorize(Roles = "Student")]
+
+<h3>Your grades</h3>
+
+@if (!studentLoaded)
+{
+    <h3>Loading...</h3>
+}
+else
+{
+    if (grades.Count > 0)
+    {
+        <table class="table table-responsive">
+            <thead>
+                <tr>
+                    <td>Module Name</td>
+                    <td>Coordinator</td>
+                    <td>Lecturer</td>
+                    <td>Grades</td>
+                    <td>Credits</td>
+                    <td>Finished</td>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in grades.DistinctBy(x => x.Module.Id))
+                {
+                    // ^ Loop goes through each unique module and finds every grade student got in that module
+
+                    var moduleName = item.Module.Module.Name;
+                    var coordinator = item.Module.Module.Coordinator;
+                    var lecturer = item.Module.Lecturer;
+
+                    // StringBuilder is more efficient in concatenating strings than value += otherString
+                    StringBuilder sb = new StringBuilder();
+                    @foreach (var grade in grades)
+                    {
+                        if (grade.Module.Module.Name == moduleName)
+                        {
+                            sb.Append(grade.GradeValue);
+                            sb.Append(" ");
+                        }
+                    }
+
+                    // Removes empty space after last grade append
+                    sb.Remove(sb.Length - 1, 1);
+
+                    <tr>
+                        <td>@moduleName</td>
+                        <td>@($"{ coordinator.FirstName } { coordinator.LastName }")</td>
+                        <td>@($"{ lecturer.FirstName } { lecturer.LastName }")</td>
+                        <td>
+                            @sb.ToString()
+                        </td>
+                        <td>@item.Module.Module.Credits</td>
+                        <td>@(item.Module.IsFinished ? "Yes" : "No")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <h3>You have no grades.</h3>
+    }
+}
+
+@code{
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationState { get; set; }
+    private bool studentLoaded = false;
+    private DataAccessLibrary.Models.Student student;
+    private List<Grade> grades;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Load student data after first render
+        if (!studentLoaded)
+        {
+            var authState = await authenticationState;
+            var userName = authState.User.Identity.Name;
+            var user = universityDb.GetByUsername(userName);
+
+            student = universityDb.GetStudent(user.Id);
+            grades = universityDb.GetStudentGrades(user.Id, student);
+
+            // Change state that student data loaded
+            studentLoaded = true;
+
+            // Inform that state has changed
+            StateHasChanged();
+        }
+    }
+}

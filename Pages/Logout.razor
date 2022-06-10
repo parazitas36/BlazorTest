@@ -1,0 +1,16 @@
+﻿@page "/logout"
+@using BlazorTest.Authentication
+@inject AuthenticationStateProvider authenticationStateProvider
+@inject NavigationManager navigationManager
+
+
+@code{
+    protected override void OnInitialized()
+    {
+        var authState = (CustomAuthenticationStateProvider)authenticationStateProvider;
+
+        authState.UpdateAuthenticationState(null);
+        
+        navigationManager.NavigateTo("/", true);
+    }
+}

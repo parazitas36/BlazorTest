@@ -1,0 +1,163 @@
+﻿@page "/modules"
+@using BlazorTest.Data
+@using DataAccessLibrary.Models
+@attribute [Authorize(Roles = "Administrator")]
+@inject IUniversityDatabase universityDb
+
+<h3>Modules</h3>
+
+@if (!isModulesLoaded)
+{
+    <h4>Loading...</h4>
+}
+else
+{
+    if (showForm)
+    {
+        <div class="container">
+            <EditForm Model="model" OnSubmit="HandleSubmit">
+                @if (!String.IsNullOrEmpty(error))
+                {
+                    <h5 class="text-danger">@error</h5>
+                }
+                <div class="row my-3">
+                    <h4 class="mb-3">Create a New Module</h4>
+                    <div class="col-2">
+                        <label class="form-label">Name</label>
+                        <input class="form-control" type="text" @bind="model.Name" placeholder="Enter a module name" required />
+                    </div>
+                    <div class="col-2">
+                        <label class="form-label">Credits</label>
+                        <input class="form-control" type="number" min="1" max="30" @bind="model.Credits" required />
+                    </div>
+                    <div class="col-2">
+                        <label class="form-label">Course</label>
+                        <select class="form-select" @bind="@selectedCourseId" required>
+                            @foreach (var course in courses)
+                            {
+                                <option value="@course.Id">@($"Year: {course.Year} Semester: {course.Semester}")</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-2">
+                        <label class="form-label">Coordinator</label>
+                        <select class="form-select" @bind="@selectedLecturerId" required>
+                            @foreach (var lecturer in lecturers)
+                            {
+                                <option value="@lecturer.Id">@($"{lecturer.FirstName} {lecturer.LastName}")</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn-primary mb-3" type="submit">Submit</button>
+            </EditForm>
+        </div>
+    }
+
+    <div class="border border-1 border-dark py-1 iconHover"
+     style="width: 100px; display:flex; justify-content: center; align-items: center; border-radius: 5px;"
+     @onclick="() => showForm = !showForm">
+        <label class="me-2" style="text-align: center">@(showForm ? "Cancel" : "Add new")</label>
+        @if (!showForm)
+        {
+            <span class="oi oi-plus"></span>
+        }
+    </div>
+
+    if (modules.Count > 0)
+    {
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Coordinator</th>
+                    <th>Credits</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var module in modules)
+                {
+                    <tr>
+                        <td>@module.Name</td>
+                        <td>@($"{module.Coordinator.FirstName} {module.Coordinator.LastName}")</td>
+                        <td>@module.Credits</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private bool isModulesLoaded = false;
+    private bool showForm = false;
+    private string? error = null;
+
+    private int selectedLecturerId = -1;    // required for html select element
+    private int selectedCourseId = -1;      // required for html select element
+    private Module model = new Module();
+
+    private List<Module> modules;
+    private List<Lecturer> lecturers;
+    private List<Course> courses;
+
+    // Fetch data from database here, because I want to show the "Loading..." message.
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Fetch data only on the first render.
+        if (!isModulesLoaded)
+        {
+            modules = universityDb.GetModules();
+            isModulesLoaded = true;
+            lecturers = universityDb.GetLecturers();
+            courses = universityDb.GetCourses();
+            StateHasChanged();
+        }
+        return base.OnAfterRenderAsync(false);
+    }
+
+    // Validate data and if it's valid post to the database.
+    protected async Task HandleSubmit()
+    {
+        error = null; // reset just in case
+
+        if (selectedLecturerId == -1)
+        {
+            error = "You must select the lecturer!";
+            return;
+        }
+        if (selectedCourseId == -1)
+        {
+            error = "You must select the course!";
+            return;
+        }
+
+        var coordinator = lecturers.Where(x => x.Id == selectedLecturerId).FirstOrDefault();
+        var course = courses.Where(x => x.Id == selectedCourseId).FirstOrDefault();
+
+        if (coordinator == null)
+        {
+            error = "The lecturer you have selected does not exist!";
+            return;
+        }
+        if (course == null)
+        {
+            error = "The course you have selected does not exist!";
+            return;
+        }
+
+        model.Coordinator = coordinator;
+        model.Course = course;
+
+        await universityDb.PostModule(model);
+
+        // Reset everything
+        model = new Module();
+        selectedCourseId = -1;
+        selectedLecturerId = -1;
+        showForm = false;
+        isModulesLoaded = false;
+
+        StateHasChanged();
+    }
+}

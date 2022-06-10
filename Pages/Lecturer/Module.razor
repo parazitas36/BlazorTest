@@ -1,0 +1,115 @@
+﻿@using BlazorTest.Data
+@using DataAccessLibrary.Models
+@using System.Text
+@inject IUniversityDatabase universityDb
+
+@if (isGradesLoaded)
+{
+    <div>
+    </div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Module</th>
+                <th>Student</th>
+                <th>Grades</th>
+                <th>Finished</th>
+                <th>New grade</th>
+                <th>Finish</th>
+            </tr>
+        </thead>
+        <tbody>
+            @{
+                uniqueStudentsReports = reports.DistinctBy(x => x.Student).ToList();
+                if (uniqueStudentsReports.Count > newGrades.Count)
+                {
+                    newGrades = new List<Grade>();
+                }
+            }
+            @for (int i = 0; i < uniqueStudentsReports.Count; i++)
+            {
+                var item = uniqueStudentsReports[i];
+                var student = item.Student;
+                if (newGrades.Count <= i)
+                {
+                    newGrades.Add(new Grade { Module = null, GradeValue = -1 });
+                }
+                var newGrade = newGrades[i];
+                newGrade.Module = item;
+                StringBuilder sb = new StringBuilder();
+
+
+                @foreach (var grade in grades.Where(x => x.Module.Student == student))
+                {
+                    sb.Append(" ");
+                    sb.Append(grade.GradeValue);
+                }
+                if (sb.Length > 0)
+                {
+                    sb.Remove(0, 1);
+                }
+
+                <tr>
+                    <td>@selectedModule</td>
+                    <td>@($"{student.FirstName} {student.LastName}")</td>
+                    <td>@(sb.Length > 0 ? sb.ToString() : "No grades yet.")</td>
+                    <td>@reports.Where(x => x.Student == student).FirstOrDefault().IsFinished</td>
+                    <td>
+                        <select class="form-select" style="max-width: 75px" @bind=@newGrade.GradeValue>
+                            @for (int j = 0; j < 10; j++)
+                            {
+                                <option value="@j">@j</option>
+                            }
+                        </select>
+                    </td>
+                    <td>
+                        @if(!item.IsFinished)
+                        {
+                            <span @onclick="() => item.IsFinished = true" class="oi oi-check iconHover"/>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <button class="btn btn-primary" @onclick="HandleSubmit">Save</button>
+}
+
+
+@code {
+    [CascadingParameter(Name = "selectedModule")]
+    private string selectedModule { get; set; }
+    [CascadingParameter(Name = "moduleReports")]
+    private List<ModuleReport> reports { get; set; }
+    [CascadingParameter(Name = "isGradesLoaded")]
+    private bool isGradesLoaded { get; set; }
+
+    private List<Grade> grades;
+    private List<Grade> newGrades;
+    private List<ModuleReport> uniqueStudentsReports; // Only one report for student = unique students list
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!isGradesLoaded)
+        {
+            grades = new List<Grade>();
+            reports.ForEach(x =>
+                grades.AddRange(universityDb.GetUniversityDbContext().Grades
+                                .Where(g => g.Module == x).ToList()));
+
+            newGrades = new List<Grade>();
+            isGradesLoaded = true;
+            StateHasChanged();
+        }
+    }
+
+    protected async Task HandleSubmit()
+    {
+        newGrades.RemoveAll(x => x.GradeValue < 0 || x.GradeValue > 10);
+        await universityDb.PostGrades(newGrades);
+        await universityDb.UpdateModuleReports(uniqueStudentsReports);
+        isGradesLoaded = false;
+    }
+
+}

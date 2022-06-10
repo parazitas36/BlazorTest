@@ -4,5 +4,26 @@
 
 <h1>Welcome!</h1>
 
-<h4>You are admin.</h4>
+<AuthorizeView>
+    <Authorized>
+        <h4>@message</h4>
+    </Authorized>
+    <NotAuthorized>
+        <h4>You are not authorized. Please login</h4>
+    </NotAuthorized>
+</AuthorizeView>
 
+
+@code{
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationState { get; set; }
+
+    private string? message = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await authenticationState;
+        message = $"Hi, {authState.User.Identity.Name}";
+    }
+
+}

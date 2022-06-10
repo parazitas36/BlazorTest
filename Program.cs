@@ -1,6 +1,9 @@
+using BlazorTest.Authentication;
 using BlazorTest.Data;
 using DataAccessLibrary.DataAccess;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,6 +18,8 @@ builder.Services.AddDbContext<UniversityContext>(options =>
 });
 
 builder.Services.AddScoped<IUniversityDatabase, UniversityDatabase>();
+builder.Services.AddScoped<ProtectedSessionStorage>();
+builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthenticationStateProvider>();
 
 var app = builder.Build();
 

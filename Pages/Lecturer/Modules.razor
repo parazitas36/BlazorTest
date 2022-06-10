@@ -1,0 +1,90 @@
+﻿@page "/lecturermodules"
+@using BlazorTest.Data
+@using DataAccessLibrary.Models
+@inject IUniversityDatabase universityDb;
+@attribute [Authorize(Roles = "Lecturer")]
+
+<h3>Modules</h3>
+
+@if (!isModulesLoaded)
+{
+    <h4>Loading...</h4>
+}
+else
+{
+    if (modules.Count > 0)
+    {
+        <table class="table" style="max-width: 500px;">
+            <thead>
+                <tr>
+                    <th>Module</th>
+                    <th>Students</th>
+                    <th>Inspect</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var module in modules.DistinctBy(x => x.Module))
+                {
+                    <tr>
+                        <td>@module.Module.Name</td>
+                        <td>@(modules.Count(x => x.Module.Name.Equals(module.Module.Name)))</td>
+                        <td>
+                            <span class="oi oi-info iconHover" @onclick="() => ExpandModule(module.Module.Name)"></span>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        if (selectedModuleName != null)
+        {
+            <CascadingValue Value="@selectedModuleName" Name="selectedModule">
+                <CascadingValue Value="@selectedModuleReports" Name="moduleReports">
+                    <CascadingValue Value="@isGradesLoaded" Name="isGradesLoaded"> 
+                        <Module />
+                    </CascadingValue>
+                </CascadingValue>
+            </CascadingValue>
+        }
+    }
+    else
+    {
+        <h5>You do not have any modules.</h5>
+    }
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationState { get; set; }
+
+    private bool isModulesLoaded = false;
+    private bool isGradesLoaded = false;
+    private List<ModuleReport> modules;
+    private string? selectedModuleName = null;
+    private List<ModuleReport> selectedModuleReports;
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!isModulesLoaded)
+        {
+            // Get lecturer's data who is logged in the system
+            var authState = await authenticationState;
+            var userName = authState.User.Identity.Name;
+            var user = universityDb.GetByUsername(userName);
+            var lecturer = universityDb.GetLecturer(user);
+
+            modules = universityDb.GetModuleReportsForLecture(lecturer);
+            isModulesLoaded = true;
+
+            StateHasChanged();
+        }
+    }
+
+    protected async Task ExpandModule(string name)
+    {
+        selectedModuleName = name;
+        selectedModuleReports = modules.Where(x => x.Module.Name == selectedModuleName).ToList();
+        isGradesLoaded = false;
+    }
+}

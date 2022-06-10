@@ -1,0 +1,103 @@
+﻿@page "/courses"
+@using BlazorTest.Data
+@using DataAccessLibrary.Models
+@inject IUniversityDatabase universityDb
+@attribute [Authorize(Roles = "Administrator")]
+
+<h3>Courses</h3>
+
+@if (!isCoursesLoaded)
+{
+    <h4>Loading...</h4>
+}
+else
+{
+    if (showForm)
+    {
+        <EditForm Model="@newCourse" OnValidSubmit="HandleSubmit">
+            <h3>Create New Course</h3>
+            <div class="container">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div class="row mb-3">
+                    <div class="col-2">
+                        <label class="col-form-label">Year</label>
+                        <input type="number" min="1900" max="2036" class="form-control" @bind="@newCourse.Year" required/>
+                    </div>
+                    <div class="col-2">
+                        <label class="col-form-label">Semester</label>
+                        <input type="number" min="1" max="10" class="form-control" @bind="newCourse.Semester" required/>
+                    </div>
+                </div>
+                <div>
+                    <button class="btn btn-primary mb-3" type="submit">Create</button>
+                </div>
+            </div>
+        </EditForm>
+
+    }
+
+    <div class="border border-1 border-dark py-1 iconHover" 
+        style="width: 100px; display:flex; justify-content: center; align-items: center; border-radius: 5px;"
+        @onclick="() => showForm = !showForm"
+    >
+        <label class="me-2" style="text-align: center">@(showForm ? "Cancel" : "Add new")</label>
+        @if (!showForm)
+        {
+            <span class="oi oi-plus"></span>
+        }
+    </div>
+
+    if (courses.Count > 0)
+    {
+        <table class="table" style="max-width: 500px;">
+            <thead>
+                <tr><th colspan="2" style="text-align: center">Courses</th></tr>
+                <tr>
+                    <th style="text-align: center">Year</th>
+                    <th style="text-align: center">Semester</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var course in courses)
+                {
+                    <tr>
+                        <td style="text-align: center">@course.Year</td>
+                        <td style="text-align: center">@course.Semester</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <h4>No courses found.</h4>
+    }
+}
+
+@code {
+    private bool isCoursesLoaded = false;
+    private List<Course> courses;
+    private Course newCourse = new Course();
+    private bool showForm = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!isCoursesLoaded)
+        {
+            courses = universityDb.GetCourses();
+            isCoursesLoaded = true;
+            StateHasChanged();
+        }
+        base.OnAfterRenderAsync(false);
+    }
+
+    protected async Task HandleSubmit()
+    {
+        await universityDb.PostCourse(newCourse);
+        isCoursesLoaded = false;
+        newCourse = new Course();
+        showForm = false;
+        StateHasChanged();
+    }
+}
